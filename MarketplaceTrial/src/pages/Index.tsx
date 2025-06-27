@@ -22,8 +22,13 @@ interface CartItem extends Product {
   quantity: number;
 }
 
-const getUniqueCategories = (products: Product[]) =>
-  Array.from(new Set(["all", ...products.map((p) => p.category)]));
+const getUniqueCategories = (products: Product[]) => {
+  const uniqueCategories = Array.from(new Set(products.map((p) => p.category)));
+  // Only add "all" if it's not already a category or if the list is empty
+  return uniqueCategories.length > 0 && !uniqueCategories.includes("all")
+    ? ["all", ...uniqueCategories]
+    : uniqueCategories;
+};
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
