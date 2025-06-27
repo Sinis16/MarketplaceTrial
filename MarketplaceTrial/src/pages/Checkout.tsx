@@ -58,7 +58,47 @@ const Checkout = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let formattedValue = value;
+    let error = "";
+
+    if (name === "cvv") {
+      // Restrict to exactly 3 digits
+      formattedValue = value.replace(/\D/g, "");
+      if (formattedValue.length > 3)
+        formattedValue = formattedValue.slice(0, 3);
+      if (formattedValue.length !== 3 && formattedValue.length > 0) {
+        error = "CVV must be exactly 3 digits.";
+      }
+    } else if (name === "expiryDate") {
+      // Accept MMYY, add / after 2 digits, validate MM <= 12
+      formattedValue = value.replace(/\D/g, ""); // Remove non-digits
+      if (formattedValue.length > 4)
+        formattedValue = formattedValue.slice(0, 4);
+
+      if (formattedValue.length >= 2) {
+        const month = parseInt(formattedValue.slice(0, 2));
+        const year =
+          formattedValue.length > 2 ? formattedValue.slice(2, 4) : "";
+        formattedValue = `${formattedValue.slice(0, 2)}/${year}`;
+
+        if (month > 12 || month === 0) {
+          error = "Month must be between 01 and 12.";
+        } else if (formattedValue.length === 5) {
+          // When 4 digits are entered (e.g., 0725)
+          const currentYear = new Date().getFullYear() % 100; // e.g., 25 for 2025
+          const currentMonth = new Date().getMonth() + 1; // 1-12 (June = 6)
+          const inputYear = parseInt(year);
+          if (
+            inputYear < currentYear ||
+            (inputYear === currentYear && month < currentMonth)
+          ) {
+            error = "Expiry date must be in the future.";
+          }
+        }
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: formattedValue }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -335,7 +375,7 @@ const Checkout = () => {
                         value={formData.expiryDate}
                         onChange={handleInputChange}
                         required
-                        placeholder="MM/YY"
+                        placeholder="MMYY"
                       />
                     </div>
                     <div>
