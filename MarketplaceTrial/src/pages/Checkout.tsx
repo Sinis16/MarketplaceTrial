@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CartItem {
   id: string;
@@ -20,6 +22,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const cartItems: CartItem[] = location.state?.cartItems || [];
 
@@ -58,14 +61,71 @@ const Checkout = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Order Placed Successfully!",
-      description:
-        "Your order has been confirmed. You'll receive a confirmation email shortly.",
-    });
-    navigate("/");
+    if (!user) {
+      toast({
+        title: "Unauthorized",
+        description: "Please sign in to complete the purchase.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
+    try {
+      // Validate required fields
+      if (
+        !formData.email ||
+        !formData.fullName ||
+        !formData.address ||
+        !formData.city ||
+        !formData.postalCode ||
+        !formData.country ||
+        !formData.phoneNumber ||
+        !formData.cardholderName ||
+        !formData.cardNumber ||
+        !formData.expiryDate ||
+        !formData.cvv
+      ) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Register purchases
+      const purchasePromises = cartItems.map(async (item) => {
+        const { error } = await supabase.from("purchases").insert({
+          profile_id: user.id,
+          product_id: item.id,
+          quantity: item.quantity,
+          total_price: item.price * item.quantity,
+          status: "completed",
+        });
+        if (error) throw error;
+      });
+
+      await Promise.all(purchasePromises);
+
+      toast({
+        title: "Order Placed Successfully!",
+        description:
+          "Your order has been confirmed. You'll receive a confirmation email shortly.",
+      });
+      navigate("/");
+      // Clear cart after successful purchase
+      localStorage.removeItem("cartItems");
+    } catch (error) {
+      console.error("Error processing purchase:", error);
+      toast({
+        title: "Error",
+        description: "Failed to complete the purchase. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const deliveryDate = new Date();

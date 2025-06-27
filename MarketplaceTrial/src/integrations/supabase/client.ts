@@ -53,7 +53,7 @@ export type Database = {
           reviews: number;
           category: string;
           description: string;
-          embedding: string[] | null; // Assuming embedding is a vector (array of numbers)
+          embedding: string[] | null;
         };
         Insert: {
           id: string;
@@ -76,6 +76,36 @@ export type Database = {
           category?: string;
           description?: string;
           embedding?: string[] | null;
+        };
+        Relationships: [];
+      };
+      purchases: {
+        Row: {
+          id: string;
+          profile_id: string;
+          product_id: string;
+          quantity: number;
+          total_price: number;
+          created_at: string;
+          status: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          product_id: string;
+          quantity: number;
+          total_price: number;
+          created_at?: string;
+          status?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          product_id?: string;
+          quantity?: number;
+          total_price?: number;
+          created_at?: string;
+          status?: string;
         };
         Relationships: [];
       };
