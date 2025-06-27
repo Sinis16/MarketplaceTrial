@@ -1,12 +1,11 @@
-
-import React, { useState, useMemo } from 'react';
-import Header from '@/components/Header';
-import CategoryFilter from '@/components/CategoryFilter';
-import ProductGrid from '@/components/ProductGrid';
-import Cart from '@/components/Cart';
-import VoiceAssistant from '@/components/VoiceAssistant';
-import { sampleProducts, getUniqueCategories } from '@/data/products';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState, useMemo, useEffect } from "react";
+import Header from "@/components/Header";
+import CategoryFilter from "@/components/CategoryFilter";
+import ProductGrid from "@/components/ProductGrid";
+import Cart from "@/components/Cart";
+import VoiceAssistant from "@/components/VoiceAssistant";
+import { sampleProducts, getUniqueCategories } from "@/data/products";
+import { useToast } from "@/hooks/use-toast";
 
 interface Product {
   id: string;
@@ -24,26 +23,55 @@ interface CartItem extends Product {
 }
 
 const Index = () => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    // Load cartItems from local storage on mount with error handling
+    try {
+      const savedCart = localStorage.getItem("cartItems");
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error("Failed to parse cartItems from local storage:", error);
+      return [];
+    }
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { toast } = useToast();
+
+  // Save cartItems to local storage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("cartItems", JSON.stringify(cartItems));
+      console.log("Cart saved to local storage:", cartItems);
+    } catch (error) {
+      console.error("Failed to save cartItems to local storage:", error);
+      toast({
+        title: "Storage Error",
+        description: "Failed to save cart. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [cartItems, toast]);
 
   const categories = getUniqueCategories();
 
   const filteredProducts = useMemo(() => {
     let filtered = sampleProducts;
 
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => product.category === selectedCategory);
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(
+        (product) => product.category === selectedCategory
+      );
     }
 
     if (searchQuery.trim()) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.description
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          product.category.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -51,21 +79,23 @@ const Index = () => {
   }, [selectedCategory, searchQuery]);
 
   const handleAddToCart = (product: Product) => {
-    setCartItems(prev => {
-      const existingItem = prev.find(item => item.id === product.id);
+    setCartItems((prev) => {
+      const existingItem = prev.find((item) => item.id === product.id);
       if (existingItem) {
-        return prev.map(item =>
+        return prev.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      const newItems = [...prev, { ...product, quantity: 1 }];
+      console.log("Cart updated:", newItems);
+      return newItems;
     });
 
     toast({
       title: "Added to cart",
-      description: `${product.name} has been added to your cart.`,
+      description: `${product.name} has been added to your BAS cart.`,
     });
   };
 
@@ -75,24 +105,21 @@ const Index = () => {
       return;
     }
 
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, quantity } : item
-      )
+    setCartItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, quantity } : item))
     );
   };
 
   const handleRemoveItem = (id: string) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+    setCartItems((prev) => prev.filter((item) => item.id !== id));
     toast({
       title: "Item removed",
-      description: "Item has been removed from your cart.",
+      description: "Item has been removed from your BAS cart.",
     });
   };
 
   const handleViewDetails = (product: Product) => {
-    // This would navigate to a product detail page in a real app
-    console.log('View product details:', product);
+    console.log("View product details:", product);
     toast({
       title: "Product Details",
       description: `Viewing details for ${product.name}`,
@@ -110,14 +137,12 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 mb-8 text-white">
           <div className="max-w-2xl">
-            <h1 className="text-4xl font-bold mb-4">
-              Shop Smarter with AI
-            </h1>
+            <h1 className="text-4xl font-bold mb-4">Shop Smarter with AI</h1>
             <p className="text-xl mb-6 text-blue-100">
-              Discover products with our voice-enabled AI assistant. Ask questions, get recommendations, and shop with confidence.
+              Discover products with our voice-enabled AI assistant. Ask
+              questions, get recommendations, and shop with confidence.
             </p>
             <div className="flex gap-4">
               <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors">
@@ -130,14 +155,12 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Category Filter */}
         <CategoryFilter
           categories={categories}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
         />
 
-        {/* Search Results Info */}
         {searchQuery && (
           <div className="mb-6">
             <p className="text-gray-600">
@@ -146,7 +169,6 @@ const Index = () => {
           </div>
         )}
 
-        {/* Product Grid */}
         {filteredProducts.length > 0 ? (
           <ProductGrid
             products={filteredProducts}
@@ -164,7 +186,6 @@ const Index = () => {
           </div>
         )}
 
-        {/* Recommendations Section */}
         <div className="mt-16 bg-white rounded-2xl p-8 shadow-sm">
           <h2 className="text-2xl font-bold mb-6 text-center">
             AI-Powered Recommendations
@@ -175,23 +196,27 @@ const Index = () => {
                 <span className="text-blue-600 font-semibold">🎯</span>
               </div>
               <h3 className="font-semibold mb-2">Personalized Picks</h3>
-              <p className="text-sm text-gray-600">Products tailored to your preferences and browsing history</p>
+              <p className="text-sm text-gray-600">
+                Products tailored to your preferences and browsing history
+              </p>
             </div>
-            
             <div className="text-center p-6 bg-gradient-to-br from-green-50 to-blue-50 rounded-xl">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-green-600 font-semibold">🗣️</span>
               </div>
               <h3 className="font-semibold mb-2">Voice Shopping</h3>
-              <p className="text-sm text-gray-600">Ask questions and get instant product recommendations</p>
+              <p className="text-sm text-gray-600">
+                Ask questions and get instant product recommendations
+              </p>
             </div>
-            
             <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-purple-600 font-semibold">✨</span>
               </div>
               <h3 className="font-semibold mb-2">Smart Suggestions</h3>
-              <p className="text-sm text-gray-600">Discover products you didn't know you needed</p>
+              <p className="text-sm text-gray-600">
+                Discover products you didn't know you needed
+              </p>
             </div>
           </div>
         </div>
@@ -205,7 +230,10 @@ const Index = () => {
         onRemoveItem={handleRemoveItem}
       />
 
-      <VoiceAssistant />
+      <VoiceAssistant
+        onAddToCart={handleAddToCart}
+        onFilterProducts={setSearchQuery}
+      />
     </div>
   );
 };

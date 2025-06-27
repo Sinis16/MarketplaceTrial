@@ -1,4 +1,3 @@
-// Extend Window interface to include webkitSpeechRecognition
 declare global {
   interface Window {
     webkitSpeechRecognition: any;
@@ -46,6 +45,7 @@ export class SpeechRecognitionService {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
+      console.log("Microphone permission granted");
       return true;
     } catch (error) {
       console.error("Microphone permission denied:", error);
@@ -89,17 +89,21 @@ export class SpeechRecognitionService {
     };
 
     this.recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
       onError(event.error);
     };
 
     this.recognition.onend = () => {
       this.isListening = false;
+      console.log("Speech recognition ended");
     };
 
     try {
       this.recognition.start();
       this.isListening = true;
+      console.log("Speech recognition started");
     } catch (error) {
+      console.error("Failed to start speech recognition:", error);
       onError('Failed to start speech recognition');
     }
   }
@@ -108,6 +112,7 @@ export class SpeechRecognitionService {
     if (this.recognition && this.isListening) {
       this.recognition.stop();
       this.isListening = false;
+      console.log("Speech recognition stopped");
     }
   }
 

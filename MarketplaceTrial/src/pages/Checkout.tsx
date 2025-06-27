@@ -1,85 +1,100 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft, CreditCard, Truck, MapPin, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Truck, MapPin, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+  category: string;
+}
 
 const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  
-  const product = location.state?.product;
-  
+
+  const cartItems: CartItem[] = location.state?.cartItems || [];
+
   const [formData, setFormData] = useState({
-    email: '',
-    fullName: '',
-    address: '',
-    city: '',
-    postalCode: '',
-    country: '',
-    phoneNumber: '',
-    deliveryInstructions: '',
-    paymentMethod: 'card',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardholderName: ''
+    email: "",
+    fullName: "",
+    address: "",
+    city: "",
+    postalCode: "",
+    country: "",
+    phoneNumber: "",
+    deliveryInstructions: "",
+    paymentMethod: "card",
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
+    cardholderName: "",
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      toast({
+        title: "No Products Selected",
+        description:
+          "Your cart is empty. Please add items to proceed with checkout.",
+        variant: "destructive",
+      });
+      navigate("/");
+    }
+  }, [cartItems, navigate, toast]);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simulate order processing
     toast({
       title: "Order Placed Successfully!",
-      description: "Your order has been confirmed. You'll receive a confirmation email shortly.",
+      description:
+        "Your order has been confirmed. You'll receive a confirmation email shortly.",
     });
-    
-    // Redirect to home after a short delay
+    // Clear cart in local storage
+    localStorage.removeItem("cartItems");
     setTimeout(() => {
-      navigate('/');
+      navigate("/");
     }, 2000);
   };
 
-  if (!product) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">No product selected</h2>
-          <Button onClick={() => navigate('/')}>Go back to home</Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Calculate delivery date (7-10 days from now)
   const deliveryDate = new Date();
   deliveryDate.setDate(deliveryDate.getDate() + 7);
   const maxDeliveryDate = new Date();
   maxDeliveryDate.setDate(maxDeliveryDate.getDate() + 10);
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+  const tax = subtotal * 0.1;
+  const total = subtotal + tax;
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <Button
@@ -95,12 +110,10 @@ const Checkout = () => {
 
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-dark-primary mb-8">Checkout</h1>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Checkout Form */}
           <div className="lg:col-span-2 space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Contact Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -136,7 +149,6 @@ const Checkout = () => {
                       />
                     </div>
                   </div>
-                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Phone Number *
@@ -152,7 +164,6 @@ const Checkout = () => {
                 </CardContent>
               </Card>
 
-              {/* Delivery Address */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -173,7 +184,6 @@ const Checkout = () => {
                       placeholder="Enter your street address"
                     />
                   </div>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -212,7 +222,6 @@ const Checkout = () => {
                       />
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Delivery Instructions (Optional)
@@ -228,7 +237,6 @@ const Checkout = () => {
                 </CardContent>
               </Card>
 
-              {/* Payment Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -249,7 +257,6 @@ const Checkout = () => {
                       placeholder="Name on card"
                     />
                   </div>
-                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Card Number *
@@ -262,7 +269,6 @@ const Checkout = () => {
                       placeholder="1234 5678 9012 3456"
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -301,30 +307,35 @@ const Checkout = () => {
             </form>
           </div>
 
-          {/* Order Summary */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-4">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-16 h-16 object-cover rounded-lg"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-medium text-dark-primary">{product.name}</h3>
-                    <p className="text-gray-600 text-sm">{product.category}</p>
-                    <p className="font-semibold text-orange-primary">${product.price.toFixed(2)}</p>
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex gap-4">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-dark-primary">
+                        {item.name}
+                      </h3>
+                      <p className="text-gray-600 text-sm">{item.category}</p>
+                      <p className="font-semibold text-orange-primary">
+                        ${item.price.toFixed(2)} x {item.quantity} = $
+                        {(item.price * item.quantity).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-
+                ))}
                 <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>${product.price.toFixed(2)}</span>
+                    <span>${subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Shipping</span>
@@ -332,17 +343,16 @@ const Checkout = () => {
                   </div>
                   <div className="flex justify-between">
                     <span>Tax</span>
-                    <span>${(product.price * 0.1).toFixed(2)}</span>
+                    <span>${tax.toFixed(2)}</span>
                   </div>
                   <div className="border-t pt-2 flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>${(product.price * 1.1).toFixed(2)}</span>
+                    <span>${total.toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Delivery Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -352,7 +362,9 @@ const Checkout = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-2">Expected delivery between</p>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Expected delivery between
+                  </p>
                   <p className="font-semibold text-dark-primary">
                     {formatDate(deliveryDate)}
                   </p>
