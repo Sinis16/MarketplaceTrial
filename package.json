@@ -3,7 +3,11 @@
     "@google/generative-ai": "^0.24.1",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tanstack/react-query": "^5.81.5",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.0",
+    "express": "^5.1.0",
     "lucide-react": "^0.525.0",
-    "react-router-dom": "^7.6.3"
+    "react-router-dom": "^7.6.3",
+    "ws": "^8.18.2"
   }
 }
