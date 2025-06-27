@@ -5,6 +5,10 @@ import os
 from dotenv import load_dotenv
 import aiohttp
 from aiohttp import web
+from supabase import create_client, Client
+# from google.generative_ai import GenerativeModel
+# Use Vertex AI Embeddings API instead
+from google.cloud import aiplatform_v1
 
 # Check for google-cloud-aiplatform availability
 try:
@@ -17,7 +21,7 @@ except ImportError:
 load_dotenv()
 
 # Verify required environment variables
-required_env_vars = ["GEMINI_API_KEY", "GOOGLE_CLOUD_PROJECT"]
+required_env_vars = ["GEMINI_API_KEY", "GOOGLE_CLOUD_PROJECT", "SUPABASE_URL", "SUPABASE_ANON_KEY"]
 for var in required_env_vars:
     if not os.getenv(var):
         print(f"Error: Environment variable {var} is not set in .env file")
@@ -34,6 +38,37 @@ except Exception as e:
     print(f"Error initializing Google AI Platform: {e}")
     exit(1)
 
+# Initialize Supabase client
+async def generate_embedding(text: str) -> list:
+    """Generate embedding for text using Vertex AI Embeddings API."""
+    try:
+        client = aiplatform_v1.PredictionServiceClient()
+        endpoint = client.endpoint_path(
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location="us-central1",
+            endpoint="textembedding-gecko"
+        )
+        instance = {"content": text}
+        response = client.predict(endpoint=endpoint, instances=[instance])
+        # The embedding is in response.predictions[0]['embeddings']
+        return response.predictions[0]['embeddings']
+    except Exception as e:
+        print(f"Error generating embedding: {e}")
+        return []
+        print(f"Error generating embedding: {e}")
+        return []
+
+async def fetch_relevant_products(embedding: list, limit: int = 5) -> list:
+    """Fetch relevant products from Supabase using pgvector similarity search."""
+    try:
+        response = await supabase.table("products").select(
+            "id, name, price, image, rating, reviews, category, description"
+        ).order("embedding <-> :embedding", params={"embedding": embedding}).limit(limit).execute()
+        return response.data or []
+    except Exception as e:
+        print(f"Error fetching products from Supabase: {e}")
+        return []
+
 async def handle_websocket(websocket, path):
     print("Client connected to WebSocket")
     
@@ -49,12 +84,22 @@ async def handle_websocket(websocket, path):
     }
 
     async def send_to_gemini(message):
-        # Placeholder for Gemini Live API call
-        # Replace with actual API call once Gemini Live SDK documentation is available
+        """Simulate Gemini Live API call with RAG context."""
         try:
+            text_input = message.get("text", "")
+            # Generate embedding for the input text
+            embedding = await generate_embedding(text_input)
+            # Fetch relevant products for RAG
+            products = await fetch_relevant_products(embedding)
+            # Create context from product data
+            context = "\n".join([f"{p['name']}: {p['description']}" for p in products])
+            
+            # Placeholder for Gemini Live API call
             response = {
                 "serverContent": {
-                    "outputTranscription": {"text": message.get("text", "")},
+                    "outputTranscription": {
+                        "text": f"User input: {text_input}\nRelevant products:\n{context}"
+                    },
                     "modelTurn": {
                         "parts": [
                             {"inlineData": {"data": "", "mime_type": "audio/webm"}}  # Placeholder for audio response
@@ -89,7 +134,7 @@ async def handle_websocket(websocket, path):
             }
             msg["client_content"]["turns"][0]["parts"] = [p for p in msg["client_content"]["turns"][0]["parts"] if p]
 
-            # Send to Gemini Live (simulated)
+            # Send to Gemini Live (simulated with RAG)
             response = await send_to_gemini(msg)
 
             # Process response
