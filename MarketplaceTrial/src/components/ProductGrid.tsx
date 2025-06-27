@@ -1,6 +1,5 @@
-
-import React from 'react';
-import ProductCard from './ProductCard';
+import React from "react";
+import ProductCard from "./ProductCard";
 
 interface Product {
   id: string;
@@ -19,7 +18,11 @@ interface ProductGridProps {
   onViewDetails: (product: Product) => void;
 }
 
-const ProductGrid = ({ products, onAddToCart, onViewDetails }: ProductGridProps) => {
+const ProductGrid = ({
+  products,
+  onAddToCart,
+  onViewDetails,
+}: ProductGridProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {products.map((product) => (

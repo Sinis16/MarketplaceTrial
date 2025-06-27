@@ -43,6 +43,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      products: {
+        Row: {
+          id: string;
+          name: string;
+          price: number;
+          image: string;
+          rating: number;
+          reviews: number;
+          category: string;
+          description: string;
+          embedding: string[] | null; // Assuming embedding is a vector (array of numbers)
+        };
+        Insert: {
+          id: string;
+          name: string;
+          price: number;
+          image: string;
+          rating: number;
+          reviews: number;
+          category: string;
+          description: string;
+          embedding?: string[] | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          price?: number;
+          image?: string;
+          rating?: number;
+          reviews?: number;
+          category?: string;
+          description?: string;
+          embedding?: string[] | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

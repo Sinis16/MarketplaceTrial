@@ -65,11 +65,7 @@ const Checkout = () => {
       description:
         "Your order has been confirmed. You'll receive a confirmation email shortly.",
     });
-    // Clear cart in local storage
-    localStorage.removeItem("cartItems");
-    setTimeout(() => {
-      navigate("/");
-    }, 2000);
+    navigate("/");
   };
 
   const deliveryDate = new Date();

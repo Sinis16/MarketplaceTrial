@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useLocation } from "react-router-dom"; // Add useLocation
+import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import Header from "@/components/Header";
 import CategoryFilter from "@/components/CategoryFilter";
 import ProductGrid from "@/components/ProductGrid";
 import Cart from "@/components/Cart";
-import { sampleProducts, getUniqueCategories } from "@/data/products";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
   id: string;
@@ -22,47 +22,39 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+const getUniqueCategories = (products: Product[]) =>
+  Array.from(new Set(["all", ...products.map((p) => p.category)]));
+
 const BrowseProducts = () => {
-  const location = useLocation(); // Get the current location
+  const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    try {
-      const savedCart = localStorage.getItem("cartItems");
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch (error) {
-      console.error("Failed to parse cartItems from local storage:", error);
-      return [];
-    }
-  });
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
-  const { toast } = useToast();
 
-  // Extract search query from URL on mount
+  const {
+    data: products = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const query = params.get("search") || "";
     setSearchQuery(decodeURIComponent(query));
   }, [location.search]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem("cartItems", JSON.stringify(cartItems));
-      console.log("Cart saved to local storage:", cartItems);
-    } catch (error) {
-      console.error("Failed to save cartItems to local storage:", error);
-      toast({
-        title: "Storage Error",
-        description: "Failed to save cart. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [cartItems, toast]);
+  const categories = getUniqueCategories(products);
 
-  const categories = getUniqueCategories();
-
-  const filteredProducts = useMemo(() => {
-    let filtered = sampleProducts;
+  const filteredProducts = React.useMemo(() => {
+    let filtered = products;
 
     if (selectedCategory !== "all") {
       filtered = filtered.filter(
@@ -82,7 +74,7 @@ const BrowseProducts = () => {
     }
 
     return filtered;
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, products]);
 
   const handleAddToCart = (product: Product) => {
     setCartItems((prev) => {
@@ -94,14 +86,7 @@ const BrowseProducts = () => {
             : item
         );
       }
-      const newItems = [...prev, { ...product, quantity: 1 }];
-      console.log("Cart updated:", newItems);
-      return newItems;
-    });
-
-    toast({
-      title: "Added to BAS cart",
-      description: `${product.name} has been added to your BAS cart.`,
+      return [...prev, { ...product, quantity: 1 }];
     });
   };
 
@@ -110,7 +95,6 @@ const BrowseProducts = () => {
       handleRemoveItem(id);
       return;
     }
-
     setCartItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, quantity } : item))
     );
@@ -118,21 +102,16 @@ const BrowseProducts = () => {
 
   const handleRemoveItem = (id: string) => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
-    toast({
-      title: "Item removed",
-      description: "Item has been removed from your BAS cart.",
-    });
   };
 
   const handleViewDetails = (product: Product) => {
     console.log("View product details:", product);
-    toast({
-      title: "Product Details",
-      description: `Viewing details for ${product.name}`,
-    });
   };
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading products</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -140,7 +119,7 @@ const BrowseProducts = () => {
         cartCount={cartCount}
         onCartClick={() => setIsMobileCartOpen(true)}
         onSearchChange={setSearchQuery}
-        searchQuery={searchQuery} // Pass searchQuery to Header
+        searchQuery={searchQuery}
       />
 
       <main className="container mx-auto px-4 py-8">

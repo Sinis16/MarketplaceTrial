@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { sampleProducts } from "@/data/products";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface Product {
@@ -35,9 +36,25 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const product = sampleProducts.find((p) => p.id === id);
+  const {
+    data: product,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["product", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  if (!product) {
+  if (isLoading) return <div>Loading...</div>;
+  if (error || !product) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -51,42 +68,32 @@ const ProductDetail = () => {
   }
 
   const handleAddToCart = () => {
-    try {
-      // Read current cartItems from local storage
-      const savedCart = localStorage.getItem("cartItems");
-      let cartItems: CartItem[] = savedCart ? JSON.parse(savedCart) : [];
+    const savedCart = localStorage.getItem("cartItems");
+    let cartItems: CartItem[] = savedCart ? JSON.parse(savedCart) : [];
 
-      // Check if product is already in cart
-      const existingItem = cartItems.find((item) => item.id === product.id);
-      if (existingItem) {
-        cartItems = cartItems.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      } else {
-        cartItems = [...cartItems, { ...product, quantity: 1 }];
-      }
-
-      // Save updated cartItems to local storage
-      localStorage.setItem("cartItems", JSON.stringify(cartItems));
-      console.log("Cart updated in local storage:", cartItems);
-
-      toast({
-        title: "Added to BAS cart",
-        description: `${product.name} has been added to your BAS cart.`,
-      });
-    } catch (error) {
-      console.error("Failed to update cart in local storage:", error);
-      toast({
-        title: "Cart Error",
-        description: "Failed to add item to cart. Please try again.",
-        variant: "destructive",
-      });
+    const existingItem = cartItems.find((item) => item.id === product.id);
+    if (existingItem) {
+      cartItems = cartItems.map((item) =>
+        item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+      );
+    } else {
+      cartItems = [...cartItems, { ...product, quantity: 1 }];
     }
+
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+    console.log("Cart updated in local storage:", cartItems);
+
+    toast({
+      title: "Added to BAS cart",
+      description: `${product.name} has been added to your BAS cart.`,
+    });
   };
 
-  // Mock seller data
+  const handleBuyNow = () => {
+    const cartItems: CartItem[] = [{ ...product, quantity: 1 }];
+    navigate("/checkout", { state: { cartItems } });
+  };
+
   const seller = {
     name: "Premium Electronics Store",
     rating: 4.8,
@@ -96,15 +103,8 @@ const ProductDetail = () => {
     verified: true,
   };
 
-  // For "Buy Now", pass the product as a single-item cart
-  const handleBuyNow = () => {
-    const cartItems: CartItem[] = [{ ...product, quantity: 1 }];
-    navigate("/checkout", { state: { cartItems } });
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <Button
@@ -120,7 +120,6 @@ const ProductDetail = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Product Image */}
           <div className="space-y-4">
             <div className="aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
               <img
@@ -131,7 +130,6 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Product Information */}
           <div className="space-y-6">
             <div>
               <Badge variant="secondary" className="mb-2">
@@ -166,7 +164,6 @@ const ProductDetail = () => {
               </p>
             </div>
 
-            {/* Action Buttons */}
             <div className="space-y-3">
               <Button
                 onClick={handleAddToCart}
@@ -185,7 +182,6 @@ const ProductDetail = () => {
               </Button>
             </div>
 
-            {/* Product Features */}
             <div className="grid grid-cols-2 gap-4 pt-6 border-t">
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-green-600" />
@@ -199,7 +195,6 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* Seller Information */}
         <Card className="mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
