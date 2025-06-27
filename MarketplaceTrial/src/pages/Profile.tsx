@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { User, Save, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,17 @@ interface CartItem {
   quantity: number;
 }
 
+interface Purchase {
+  id: string;
+  profile_id: string;
+  product_id: string;
+  quantity: number;
+  total_price: number;
+  created_at: string;
+  status: string;
+  product_name?: string;
+}
+
 const Profile = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -43,6 +54,7 @@ const Profile = () => {
       return [];
     }
   });
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
 
   useEffect(() => {
     try {
@@ -95,7 +107,46 @@ const Profile = () => {
       }
     };
 
+    const fetchPurchases = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("purchases")
+          .select(
+            "id, profile_id, product_id, quantity, total_price, created_at, status"
+          )
+          .eq("profile_id", user.id);
+
+        if (error) {
+          throw error;
+        }
+
+        const purchasesWithNames = await Promise.all(
+          data.map(async (purchase) => {
+            const { data: productData } = await supabase
+              .from("products")
+              .select("name")
+              .eq("id", purchase.product_id)
+              .single();
+            return {
+              ...purchase,
+              product_name: productData?.name || "Unknown Product",
+            };
+          })
+        );
+
+        setPurchases(purchasesWithNames);
+      } catch (error) {
+        console.error("Error fetching purchases:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load purchase history.",
+          variant: "destructive",
+        });
+      }
+    };
+
     fetchProfile();
+    fetchPurchases();
   }, [user, loading, navigate, toast]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -147,8 +198,8 @@ const Profile = () => {
     <div className="min-h-screen bg-gray-50">
       <Header
         cartCount={cartCount}
-        onCartClick={() => navigate("/")} // Navigate to Index for CartModal
-        onSearchChange={() => {}} // No search on Profile page
+        onCartClick={() => navigate("/")}
+        onSearchChange={() => {}}
       />
       <main className="container mx-auto px-4 py-8">
         <Card className="max-w-2xl mx-auto p-6">
@@ -222,6 +273,55 @@ const Profile = () => {
               Go Back Home
             </Button>
           </form>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Purchase History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {purchases.length === 0 ? (
+                <p className="text-gray-600">No purchases yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {purchases.map((purchase) => (
+                    <Card key={purchase.id} className="border shadow-sm">
+                      <CardContent className="p-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <div>
+                            <h3 className="font-medium text-dark-primary">
+                              {purchase.product_name}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              Quantity: {purchase.quantity}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-orange-primary">
+                              ${purchase.total_price.toFixed(2)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(
+                                purchase.created_at
+                              ).toLocaleDateString()}
+                            </p>
+                            <p
+                              className={`text-sm ${
+                                purchase.status === "completed"
+                                  ? "text-green-600"
+                                  : "text-yellow-600"
+                              }`}
+                            >
+                              {purchase.status}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </Card>
       </main>
     </div>
