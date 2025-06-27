@@ -1,335 +1,132 @@
 import React, { useState, useEffect } from "react";
-import { Mic, MicOff, MessageSquare, X, Volume2 } from "lucide-react";
+import { Mic, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { speechRecognitionService } from "@/utils/speechRecognition";
 import { sampleProducts } from "@/data/products";
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  rating: number;
-  reviews: number;
-  category: string;
-  description: string;
-}
+import { speechRecognitionService } from "@/utils/speechRecognition";
 
 interface VoiceAssistantProps {
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: {
+    id: string;
+    name: string;
+    price: number;
+    image: string;
+    rating: number;
+    reviews: number;
+    category: string;
+    description: string;
+  }) => void;
   onFilterProducts: (query: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
   onAddToCart,
   onFilterProducts,
+  isOpen,
+  onClose,
 }) => {
   const [isListening, setIsListening] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [currentTranscript, setCurrentTranscript] = useState("");
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Hi! I'm your mock AI shopping assistant. Try saying 'Add headphones to cart' or 'Find electronics'!",
-    },
-  ]);
   const { toast } = useToast();
 
   useEffect(() => {
     if (!speechRecognitionService.isSupported()) {
       toast({
-        title: "Speech Recognition Not Supported",
-        description:
-          "Your browser doesn't support speech recognition. Please try Chrome or Edge.",
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
-
-  const handleStartListening = async () => {
-    if (!speechRecognitionService.isSupported()) {
-      toast({
-        title: "Not Supported",
+        title: "Voice Search Unavailable",
         description: "Speech recognition is not supported in this browser.",
         variant: "destructive",
       });
       return;
     }
 
-    const hasPermission =
-      await speechRecognitionService.requestMicrophonePermission();
-    if (!hasPermission) {
-      toast({
-        title: "Permission Denied",
-        description: "Microphone access is required for speech recognition.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (isListening) {
+      speechRecognitionService.startListening(
+        (transcript: string, isFinal: boolean) => {
+          if (!isFinal) return; // Only process final transcripts
+          console.log("Speech recognition result:", transcript);
+          const lowerTranscript = transcript.toLowerCase();
 
-    setIsListening(true);
-    setCurrentTranscript("");
+          if (
+            lowerTranscript.includes("add") &&
+            lowerTranscript.includes("cart")
+          ) {
+            const productName = lowerTranscript
+              .replace(/(add|to|cart)/gi, "")
+              .trim();
+            const product = sampleProducts.find((p) =>
+              p.name.toLowerCase().includes(productName)
+            );
 
-    speechRecognitionService.startListening(
-      (transcript: string, isFinal: boolean) => {
-        console.log(
-          "Speech recognition result:",
-          transcript,
-          "Final:",
-          isFinal
-        );
-
-        if (isFinal) {
-          handleSpeechResult(transcript);
-          setCurrentTranscript("");
-        } else {
-          setCurrentTranscript(transcript);
-        }
-      },
-      (error: string) => {
-        console.error("Speech recognition error:", error);
-        setIsListening(false);
-        setCurrentTranscript("");
-        toast({
-          title: "Speech Recognition Error",
-          description: `Error: ${error}`,
-          variant: "destructive",
-        });
-      }
-    );
-  };
-
-  const handleStopListening = () => {
-    speechRecognitionService.stopListening();
-    setIsListening(false);
-    setCurrentTranscript("");
-  };
-
-  const handleSpeechResult = async (transcript: string) => {
-    if (transcript.trim()) {
-      setMessages((prev) => [...prev, { role: "user", content: transcript }]);
-      const lowerTranscript = transcript.toLowerCase();
-
-      // Mock cart-related commands
-      if (
-        lowerTranscript.includes("add") &&
-        (lowerTranscript.includes("cart") ||
-          lowerTranscript.includes("to cart"))
-      ) {
-        const productName = lowerTranscript
-          .replace(/add\s*(to\s*cart)?/, "")
-          .trim();
-        const product = sampleProducts.find((p) =>
-          p.name.toLowerCase().includes(productName)
-        );
-        if (product) {
-          onAddToCart(product);
-          const response = `Added ${product.name} to your cart!`;
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: response },
-          ]);
-          toast({
-            title: "Added to Cart",
-            description: `${product.name} has been added to your cart.`,
-          });
-          if ("speechSynthesis" in window) {
-            const utterance = new SpeechSynthesisUtterance(response);
-            utterance.rate = 0.8;
-            utterance.pitch = 1;
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
+            if (product) {
+              onAddToCart(product);
+              toast({
+                title: "Added to BAS cart",
+                description: `${product.name} added to your BAS cart.`,
+              });
+            } else {
+              toast({
+                title: "Product not found",
+                description: "Sorry, I couldn’t find that product.",
+                variant: "destructive",
+              });
+            }
+          } else if (
+            lowerTranscript.includes("find") ||
+            lowerTranscript.includes("search")
+          ) {
+            const query = lowerTranscript.replace(/(find|search)/gi, "").trim();
+            onFilterProducts(query);
+            toast({
+              title: "Searching products",
+              description: `Filtering products for "${query}"`,
+            });
           }
-          return;
-        } else {
-          const response = `Sorry, I couldn't find "${productName}" in the products. Try saying the product name clearly or browse manually.`;
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: response },
-          ]);
+        },
+        (error: string) => {
           toast({
-            title: "Product Not Found",
-            description: `No product matches "${productName}".`,
+            title: "Voice Search Error",
+            description: error,
             variant: "destructive",
           });
-          if ("speechSynthesis" in window) {
-            const utterance = new SpeechSynthesisUtterance(response);
-            utterance.rate = 0.8;
-            utterance.pitch = 1;
-            utterance.lang = "en-US";
-            speechSynthesis.speak(utterance);
-          }
-          return;
+          setIsListening(false);
         }
-      }
-
-      // Mock search/filter commands
-      if (
-        lowerTranscript.includes("find") ||
-        lowerTranscript.includes("search") ||
-        lowerTranscript.includes("show")
-      ) {
-        const query = lowerTranscript.replace(/(find|search|show)/, "").trim();
-        onFilterProducts(query);
-        const response = `Filtering products for "${query}". Check the product grid!`;
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: response },
-        ]);
-        toast({
-          title: "Search Applied",
-          description: `Showing products for "${query}".`,
-        });
-        if ("speechSynthesis" in window) {
-          const utterance = new SpeechSynthesisUtterance(response);
-          utterance.rate = 0.8;
-          utterance.pitch = 1;
-          utterance.lang = "en-US";
-          speechSynthesis.speak(utterance);
-        }
-        return;
-      }
-
-      // Mock general query response
-      const responseText = `Mock response: I heard "${transcript}". Try adding to cart or searching for products!`;
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: responseText },
-      ]);
-      if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(responseText);
-        utterance.rate = 0.8;
-        utterance.pitch = 1;
-        utterance.lang = "en-US";
-        speechSynthesis.speak(utterance);
-      }
+      );
+    } else {
+      speechRecognitionService.stopListening();
     }
-  };
 
-  const toggleExpanded = () => {
-    setIsExpanded(!isExpanded);
-  };
+    return () => speechRecognitionService.stopListening();
+  }, [isListening, onAddToCart, onFilterProducts, toast]);
 
-  const handleQuickCommand = (command: string) => {
-    handleSpeechResult(command);
-  };
+  if (!isOpen) return null;
 
   return (
-    <>
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          onClick={toggleExpanded}
-          className="w-16 h-16 rounded-full bg-orange-primary hover:bg-orange-primary/90 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center"
-        >
-          <MessageSquare className="w-6 h-6 text-white" />
+    <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 w-80">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-dark-primary">
+          Voice Assistant
+        </h3>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="w-5 h-5" />
         </Button>
       </div>
-
-      {isExpanded && (
-        <div className="fixed bottom-24 right-6 w-80 z-50 animate-fade-in">
-          <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold text-dark-primary">
-                  Mock AI Assistant
-                </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleExpanded}
-                  className="h-8 w-8 p-0"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              <div className="max-h-40 overflow-y-auto space-y-2">
-                {messages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg text-sm ${
-                      message.role === "assistant"
-                        ? "bg-light-primary text-dark-primary"
-                        : "bg-gray-50 text-dark-primary"
-                    }`}
-                  >
-                    {message.role === "assistant" ? "Assistant: " : "You: "}
-                    {message.content}
-                  </div>
-                ))}
-                {currentTranscript && (
-                  <div className="p-3 rounded-lg text-sm bg-blue-50 text-blue-700 border border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Volume2 className="w-3 h-3" />
-                      <span className="italic">
-                        Listening: {currentTranscript}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-center space-x-4">
-                <Button
-                  onClick={
-                    isListening ? handleStopListening : handleStartListening
-                  }
-                  disabled={!speechRecognitionService.isSupported()}
-                  className={`w-12 h-12 rounded-full transition-all duration-200 ${
-                    isListening
-                      ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                      : "bg-orange-primary hover:bg-orange-primary/90"
-                  }`}
-                >
-                  {isListening ? (
-                    <MicOff className="w-5 h-5 text-white" />
-                  ) : (
-                    <Mic className="w-5 h-5 text-white" />
-                  )}
-                </Button>
-                <span className="text-sm text-gray-primary">
-                  {isListening ? "Listening..." : "Click to speak"}
-                </span>
-              </div>
-
-              {!speechRecognitionService.isSupported() && (
-                <div className="text-xs text-red-500 text-center">
-                  Speech recognition not supported in this browser
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <p className="text-xs text-gray-primary font-medium">
-                  Quick commands:
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    "Find headphones",
-                    "Show deals",
-                    "Add headphones to cart",
-                  ].map((command) => (
-                    <Button
-                      key={command}
-                      variant="outline"
-                      size="sm"
-                      className="text-xs px-2 py-1 h-auto text-dark-primary border-gray-primary hover:bg-light-primary"
-                      onClick={() => handleQuickCommand(command)}
-                    >
-                      {command}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </>
+      <Button
+        onClick={() => setIsListening((prev) => !prev)}
+        className={`w-full ${
+          isListening
+            ? "bg-red-500 hover:bg-red-600"
+            : "bg-orange-primary hover:bg-orange-primary/90"
+        }`}
+        disabled={!speechRecognitionService.isSupported()}
+      >
+        <Mic className="w-5 h-5 mr-2" />
+        {isListening ? "Stop Listening" : "Start Voice Search"}
+      </Button>
+      <p className="text-sm text-gray-600 mt-2">
+        Try saying: "Add headphones to cart" or "Find electronics"
+      </p>
+    </div>
   );
 };
 

@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import CategoryFilter from "@/components/CategoryFilter";
 import ProductGrid from "@/components/ProductGrid";
-import Cart from "@/components/Cart";
+import CartModal from "@/components/CartModal";
 import VoiceAssistant from "@/components/VoiceAssistant";
 import { sampleProducts, getUniqueCategories } from "@/data/products";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +27,6 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    // Load cartItems from local storage on mount with error handling
     try {
       const savedCart = localStorage.getItem("cartItems");
       return savedCart ? JSON.parse(savedCart) : [];
@@ -36,9 +36,10 @@ const Index = () => {
     }
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Save cartItems to local storage whenever it changes
   useEffect(() => {
     try {
       localStorage.setItem("cartItems", JSON.stringify(cartItems));
@@ -94,7 +95,7 @@ const Index = () => {
     });
 
     toast({
-      title: "Added to cart",
+      title: "Added to BAS cart",
       description: `${product.name} has been added to your BAS cart.`,
     });
   };
@@ -126,6 +127,12 @@ const Index = () => {
     });
   };
 
+  const handleSearchChange = (query: string) => {
+    if (query.trim()) {
+      navigate(`/browse?search=${encodeURIComponent(query)}`);
+    }
+  };
+
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -133,7 +140,7 @@ const Index = () => {
       <Header
         cartCount={cartCount}
         onCartClick={() => setIsCartOpen(true)}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
       />
 
       <main className="container mx-auto px-4 py-8">
@@ -145,10 +152,16 @@ const Index = () => {
               questions, get recommendations, and shop with confidence.
             </p>
             <div className="flex gap-4">
-              <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors">
+              <button
+                className="bg-white text-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                onClick={() => setIsVoiceAssistantOpen(true)}
+              >
                 Try Voice Search
               </button>
-              <button className="border border-white text-white px-6 py-3 rounded-lg font-medium hover:bg-white/10 transition-colors">
+              <button
+                className="border border-white text-white px-6 py-3 rounded-lg font-medium hover:bg-white/10 transition-colors"
+                onClick={() => navigate("/browse")}
+              >
                 Browse Products
               </button>
             </div>
@@ -222,7 +235,7 @@ const Index = () => {
         </div>
       </main>
 
-      <Cart
+      <CartModal
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         items={cartItems}
@@ -231,6 +244,8 @@ const Index = () => {
       />
 
       <VoiceAssistant
+        isOpen={isVoiceAssistantOpen}
+        onClose={() => setIsVoiceAssistantOpen(false)}
         onAddToCart={handleAddToCart}
         onFilterProducts={setSearchQuery}
       />
