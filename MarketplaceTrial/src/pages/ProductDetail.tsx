@@ -1,36 +1,89 @@
+import React from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Star,
+  ShoppingCart,
+  Store,
+  MapPin,
+  Clock,
+  Shield,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { sampleProducts } from "@/data/products";
+import { useToast } from "@/hooks/use-toast";
 
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, ShoppingCart, Store, MapPin, Clock, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { sampleProducts } from '@/data/products';
-import { useToast } from '@/hooks/use-toast';
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  rating: number;
+  reviews: number;
+  category: string;
+  description: string;
+}
+
+interface CartItem extends Product {
+  quantity: number;
+}
 
 const ProductDetail = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const product = sampleProducts.find(p => p.id === id);
+  const product = sampleProducts.find((p) => p.id === id);
 
   if (!product) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
-          <Button onClick={() => navigate('/')}>Go back to home</Button>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Product not found
+          </h2>
+          <Button onClick={() => navigate("/")}>Go back to home</Button>
         </div>
       </div>
     );
   }
 
   const handleAddToCart = () => {
-    toast({
-      title: "Added to cart",
-      description: `${product.name} has been added to your cart.`,
-    });
+    try {
+      // Read current cartItems from local storage
+      const savedCart = localStorage.getItem("cartItems");
+      let cartItems: CartItem[] = savedCart ? JSON.parse(savedCart) : [];
+
+      // Check if product is already in cart
+      const existingItem = cartItems.find((item) => item.id === product.id);
+      if (existingItem) {
+        cartItems = cartItems.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      } else {
+        cartItems = [...cartItems, { ...product, quantity: 1 }];
+      }
+
+      // Save updated cartItems to local storage
+      localStorage.setItem("cartItems", JSON.stringify(cartItems));
+      console.log("Cart updated in local storage:", cartItems);
+
+      toast({
+        title: "Added to BAS cart",
+        description: `${product.name} has been added to your BAS cart.`,
+      });
+    } catch (error) {
+      console.error("Failed to update cart in local storage:", error);
+      toast({
+        title: "Cart Error",
+        description: "Failed to add item to cart. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Mock seller data
@@ -40,7 +93,13 @@ const ProductDetail = () => {
     totalReviews: 1250,
     location: "New York, NY",
     responseTime: "within 2 hours",
-    verified: true
+    verified: true,
+  };
+
+  // For "Buy Now", pass the product as a single-item cart
+  const handleBuyNow = () => {
+    const cartItems: CartItem[] = [{ ...product, quantity: 1 }];
+    navigate("/checkout", { state: { cartItems } });
   };
 
   return (
@@ -50,7 +109,7 @@ const ProductDetail = () => {
         <div className="container mx-auto px-4 py-4">
           <Button
             variant="ghost"
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="flex items-center gap-2 text-gray-600 hover:text-orange-primary mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -81,14 +140,21 @@ const ProductDetail = () => {
               <h1 className="text-3xl font-bold text-dark-primary mb-4">
                 {product.name}
               </h1>
-              
+
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex text-orange-primary">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className={`w-5 h-5 ${i < Math.floor(product.rating) ? 'fill-current' : ''}`} />
+                    <Star
+                      key={i}
+                      className={`w-5 h-5 ${
+                        i < Math.floor(product.rating) ? "fill-current" : ""
+                      }`}
+                    />
                   ))}
                 </div>
-                <span className="text-gray-600">({product.reviews} reviews)</span>
+                <span className="text-gray-600">
+                  ({product.reviews} reviews)
+                </span>
               </div>
 
               <div className="text-4xl font-bold text-dark-primary mb-6">
@@ -109,9 +175,9 @@ const ProductDetail = () => {
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Add to Cart
               </Button>
-              
+
               <Button
-                onClick={() => navigate('/checkout', { state: { product } })}
+                onClick={handleBuyNow}
                 variant="outline"
                 className="w-full border-orange-primary text-orange-primary hover:bg-orange-primary hover:text-white py-3 text-lg"
               >
@@ -145,18 +211,28 @@ const ProductDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-lg font-semibold text-dark-primary">{seller.name}</h3>
+                  <h3 className="text-lg font-semibold text-dark-primary">
+                    {seller.name}
+                  </h3>
                   {seller.verified && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-800"
+                    >
                       Verified
                     </Badge>
                   )}
                 </div>
-                
+
                 <div className="flex items-center gap-2 mb-2">
                   <div className="flex text-orange-primary">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`w-4 h-4 ${i < Math.floor(seller.rating) ? 'fill-current' : ''}`} />
+                      <Star
+                        key={i}
+                        className={`w-4 h-4 ${
+                          i < Math.floor(seller.rating) ? "fill-current" : ""
+                        }`}
+                      />
                     ))}
                   </div>
                   <span className="text-sm text-gray-600">
@@ -171,7 +247,9 @@ const ProductDetail = () => {
 
                 <div className="flex items-center gap-2 text-gray-600">
                   <Clock className="w-4 h-4" />
-                  <span className="text-sm">Responds {seller.responseTime}</span>
+                  <span className="text-sm">
+                    Responds {seller.responseTime}
+                  </span>
                 </div>
               </div>
 
