@@ -11,7 +11,7 @@ export class SpeechRecognitionService {
   private genAI: GoogleGenerativeAI;
 
   constructor() {
-    this.genAI = new GoogleGenerativeAI("AIzaSyAG2MRt8Ttdgd0sBH0ouy5_giqyYhrTAS0");
+    this.genAI = new GoogleGenerativeAI("");
   }
 
   isSupported(): boolean {
