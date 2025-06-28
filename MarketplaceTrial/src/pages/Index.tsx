@@ -24,7 +24,6 @@ interface CartItem extends Product {
 
 const getUniqueCategories = (products: Product[]) => {
   const uniqueCategories = Array.from(new Set(products.map((p) => p.category)));
-  // Only add "all" if it's not already a category or if the list is empty
   return uniqueCategories.length > 0 && !uniqueCategories.includes("all")
     ? ["all", ...uniqueCategories]
     : uniqueCategories;
@@ -33,9 +32,19 @@ const getUniqueCategories = (products: Product[]) => {
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    // Load cart from localStorage on mount
+    const savedCart = localStorage.getItem("cartItems");
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+    console.log("Cart saved to local storage:", cartItems);
+  }, [cartItems]);
 
   const {
     data: products = [],
@@ -49,10 +58,6 @@ const Index = () => {
       return data;
     },
   });
-
-  useEffect(() => {
-    console.log("Cart saved to local storage:", cartItems);
-  }, [cartItems]);
 
   const categories = getUniqueCategories(products);
 

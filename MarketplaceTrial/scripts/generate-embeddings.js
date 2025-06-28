@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 // Initialize Google Generative AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyAG2MRt8Ttdgd0sBH0ouy5_giqyYhrTAS0");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyCQSGVj4i5mRxEaWMOOvlza41gpkzMvI7Q");
 const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
 
 async function generateEmbeddings() {
