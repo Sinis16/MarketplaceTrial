@@ -3,12 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client
 const supabase = createClient(
-  "https://kwtdbcbrqlmytwisgqil.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3dGRiY2JycWxteXR3aXNncWlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEwMzg5NjUsImV4cCI6MjA2NjYxNDk2NX0.a3CbVKSIEDk64uuqSOmDCj4TntSCp4gL6sBFg6y1XDU"
-);
+  );
 
 // Initialize Google Generative AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyCQSGVj4i5mRxEaWMOOvlza41gpkzMvI7Q");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
 
 async function generateEmbeddings() {
