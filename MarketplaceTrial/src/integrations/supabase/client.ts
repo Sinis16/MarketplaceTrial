@@ -4,6 +4,7 @@ const SUPABASE_URL = "https://kwtdbcbrqlmytwisgqil.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3dGRiY2JycWxteXR3aXNncWlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEwMzg5NjUsImV4cCI6MjA2NjYxNDk2NX0.a3CbVKSIEDk64uuqSOmDCj4TntSCp4gL6sBFg6y1XDU";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export default supabase;
 
 export type Json =
   | string
@@ -53,7 +54,7 @@ export type Database = {
           reviews: number;
           category: string;
           description: string;
-          embedding: string[] | null;
+          embedding: number[] | null;
         };
         Insert: {
           id: string;
@@ -64,7 +65,7 @@ export type Database = {
           reviews: number;
           category: string;
           description: string;
-          embedding?: string[] | null;
+          embedding?: number[] | null;
         };
         Update: {
           id?: string;
@@ -75,7 +76,7 @@ export type Database = {
           reviews?: number;
           category?: string;
           description?: string;
-          embedding?: string[] | null;
+          embedding?: number[] | null;
         };
         Relationships: [];
       };
@@ -114,7 +115,22 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      match_products: {
+        Args: {
+          query_embedding: number[];
+          match_count: number; // Removed match_countstuarts
+        };
+        Returns: {
+          id: string;
+          name: string;
+          price: number;
+          image: string;
+          rating: number;
+          reviews: number;
+          category: string;
+          description: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Mic, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { sampleProducts } from "@/data/products";
-import { speechRecognitionService } from "@/utils/speechRecognition";
+import { supabase } from "@/integrations/supabase/client";
+import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
 
 interface VoiceAssistantProps {
   onAddToCart: (product: {
@@ -29,75 +30,153 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 }) => {
   const [isListening, setIsListening] = useState(false);
   const { toast } = useToast();
+  const genAI = new GoogleGenerativeAI(
+    import.meta.env.VITE_GEMINI_API_KEY || "your_actual_gemini_api_key"
+  );
+  const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!speechRecognitionService.isSupported()) {
-      toast({
-        title: "Voice Search Unavailable",
-        description: "Speech recognition is not supported in this browser.",
-        variant: "destructive",
-      });
+    if (!isOpen) {
+      setIsListening(false);
       return;
     }
 
     if (isListening) {
-      speechRecognitionService.startListening(
-        (transcript: string, isFinal: boolean) => {
-          if (!isFinal) return; // Only process final transcripts
-          console.log("Speech recognition result:", transcript);
-          const lowerTranscript = transcript.toLowerCase();
+      startLiveSession();
+    } else if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
 
-          if (
-            lowerTranscript.includes("add") &&
-            lowerTranscript.includes("cart")
-          ) {
-            const productName = lowerTranscript
-              .replace(/(add|to|cart)/gi, "")
-              .trim();
-            const product = sampleProducts.find((p) =>
-              p.name.toLowerCase().includes(productName)
-            );
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [isListening, isOpen]);
 
-            if (product) {
-              onAddToCart(product);
-              toast({
-                title: "Added to BAS cart",
-                description: `${product.name} added to your BAS cart.`,
-              });
-            } else {
-              toast({
-                title: "Product not found",
-                description: "Sorry, I couldn’t find that product.",
-                variant: "destructive",
-              });
-            }
-          } else if (
-            lowerTranscript.includes("find") ||
-            lowerTranscript.includes("search")
-          ) {
-            const query = lowerTranscript.replace(/(find|search)/gi, "").trim();
-            onFilterProducts(query);
-            toast({
-              title: "Searching products",
-              description: `Filtering products for "${query}"`,
-            });
-          }
-        },
-        (error: string) => {
+  const startLiveSession = async () => {
+    try {
+      wsRef.current = new WebSocket("ws://localhost:7861");
+      wsRef.current.onopen = () => {
+        console.log("WebSocket connected for voice assistant");
+      };
+
+      wsRef.current.onmessage = async (event) => {
+        const response = JSON.parse(event.data);
+        if (response.transcript) {
+          const transcript = response.transcript.toLowerCase();
+          await handleTranscript(transcript);
+        } else if (response.error) {
           toast({
-            title: "Voice Search Error",
-            description: error,
+            title: "Voice Error",
+            description: response.error,
             variant: "destructive",
           });
           setIsListening(false);
         }
-      );
-    } else {
-      speechRecognitionService.stopListening();
-    }
+      };
 
-    return () => speechRecognitionService.stopListening();
-  }, [isListening, onAddToCart, onFilterProducts, toast]);
+      wsRef.current.onerror = () => {
+        toast({
+          title: "Voice Error",
+          description: "Failed to connect to voice server.",
+          variant: "destructive",
+        });
+        setIsListening(false);
+      };
+
+      wsRef.current.onclose = () => {
+        console.log("WebSocket closed");
+        setIsListening(false);
+      };
+    } catch (error) {
+      toast({
+        title: "Voice Error",
+        description: "Could not start live session.",
+        variant: "destructive",
+      });
+      setIsListening(false);
+    }
+  };
+
+  const handleTranscript = async (transcript: string) => {
+    if (transcript.includes("add") && transcript.includes("cart")) {
+      const productName = transcript.replace(/(add|to|cart)/gi, "").trim();
+      let product = sampleProducts.find((p) =>
+        p.name.toLowerCase().includes(productName)
+      );
+      if (!product) {
+        product = await performRagSearch(productName);
+      }
+      if (product) {
+        onAddToCart(product);
+        toast({
+          title: "Added to BAS cart",
+          description: `${product.name} added to your BAS cart.`,
+        });
+      } else {
+        toast({
+          title: "Product not found",
+          description: "Sorry, I couldn’t find that product.",
+          variant: "destructive",
+        });
+      }
+    } else if (transcript.includes("find") || transcript.includes("search")) {
+      const query = transcript.replace(/(find|search)/gi, "").trim();
+      onFilterProducts(query);
+      toast({
+        title: "Searching products",
+        description: `Filtering products for "${query}"`,
+      });
+      const suggestion = await getRecommendation(query);
+      if (suggestion) {
+        toast({
+          title: "Suggestion",
+          description: `Try ${suggestion.name} based on your query!`,
+        });
+      }
+    }
+  };
+
+  const performRagSearch = async (query: string): Promise<any> => {
+    try {
+      const result = await embeddingModel.embedContent({
+        content: { role: "user", parts: [{ text: query }] },
+        taskType: TaskType.RETRIEVAL_QUERY,
+      });
+      const embedding: number[] = result.embedding.values;
+      const { data, error } = await supabase.rpc("match_products", {
+        query_embedding: embedding,
+        match_count: 1,
+      });
+      if (error) throw error;
+      return data[0] || null;
+    } catch (error) {
+      console.error("Error in performRagSearch:", error);
+      return null;
+    }
+  };
+
+  const getRecommendation = async (query: string): Promise<any> => {
+    try {
+      const result = await embeddingModel.embedContent({
+        content: { role: "user", parts: [{ text: query }] },
+        taskType: TaskType.RETRIEVAL_QUERY,
+      });
+      const embedding: number[] = result.embedding.values;
+      const { data, error } = await supabase.rpc("match_products", {
+        query_embedding: embedding,
+        match_count: 1,
+      });
+      if (error) throw error;
+      return data[0] || null;
+    } catch (error) {
+      console.error("Error in getRecommendation:", error);
+      return null;
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -118,7 +197,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
             ? "bg-red-500 hover:bg-red-600"
             : "bg-orange-primary hover:bg-orange-primary/90"
         }`}
-        disabled={!speechRecognitionService.isSupported()}
+        disabled={!genAI}
       >
         <Mic className="w-5 h-5 mr-2" />
         {isListening ? "Stop Listening" : "Start Voice Search"}
